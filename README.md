@@ -48,6 +48,31 @@ username: cusadmin
 password: mypassword
 ```
 
+### Supporting other CODA models
+
+Additional configuration options are available for other Hitron CODA devices:
+
+- `modem_type`: Selects the API variant to use. Defaults to `coda4680`. Set to
+  `coda56` for the CODA56 cable modem.
+- `scheme`: Overrides the URL scheme used to connect to the modem. Defaults to
+  `http` for the CODA4680 and `https` for the CODA56.
+- `insecure_skip_verify`: When set to `true`, TLS certificate validation is
+  skipped. Useful for the CODA56's self-signed certificate.
+- `collect_router` / `collect_wifi`: Enable or disable the router and Wi-Fi
+  collectors. These default to `false` for the CODA56 since it operates as a
+  modem-only device.
+
+Example configuration for a CODA56 modem:
+
+```yaml
+host: 192.168.100.1
+modem_type: coda56
+scheme: https
+insecure_skip_verify: true
+collect_router: false
+collect_wifi: false
+```
+
 To run the exporter:
 
 ```console

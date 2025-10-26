@@ -10,10 +10,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+type cmClient interface {
+	CMSysInfo(ctx context.Context) (hitron.CMSysInfo, error)
+	CMDsInfo(ctx context.Context) (hitron.CMDsInfo, error)
+	CMUsInfo(ctx context.Context) (hitron.CMUsInfo, error)
+	CMDsOfdm(ctx context.Context) (hitron.CMDsOfdm, error)
+	CMUsOfdm(ctx context.Context) (hitron.CMUsOfdm, error)
+	CMVersion(ctx context.Context) (hitron.CMVersion, error)
+}
+
 // cmCollector tracks interesting metrics from the hitron CM* APIs
 type cmCollector struct {
 	ctx     context.Context
-	client  func() *hitron.CableModem
+	client  func() cmClient
 	sysInfo struct {
 		usDataRate       prometheus.Gauge
 		dsDataRate       prometheus.Gauge
@@ -47,7 +56,7 @@ type cmCollector struct {
 }
 
 //nolint:funlen
-func newCMCollector(ctx context.Context, clientProvider func() *hitron.CableModem) cmCollector {
+func newCMCollector(ctx context.Context, clientProvider func() cmClient) cmCollector {
 	c := cmCollector{ctx: ctx, client: clientProvider}
 
 	sub := "cm"
