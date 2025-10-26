@@ -297,7 +297,7 @@ func (p coda56UpstreamPort) toPortInfo() hitron.PortInfo {
 }
 
 type coda56DsOfdm struct {
-	Receive        int    `json:"receive"`
+	Receive        string `json:"receive"`
 	FFTType        string `json:"ffttype"`
 	SubcarrierFreq string `json:"Subcarr0freqFreq"`
 	PLCLock        string `json:"plclock"`
@@ -307,11 +307,12 @@ type coda56DsOfdm struct {
 }
 
 func (r coda56DsOfdm) toOFDMReceiver() hitron.OFDMReceiver {
+	id, _ := strconv.Atoi(strings.TrimSpace(r.Receive))
 	freq, _ := strconv.ParseInt(strings.TrimSpace(r.SubcarrierFreq), 10, 64)
 	power, _ := strconv.ParseFloat(strings.TrimSpace(r.PLCPower), 64)
 
 	return hitron.OFDMReceiver{
-		ID:             r.Receive,
+		ID:             id,
 		FFTType:        strings.TrimSpace(r.FFTType),
 		SubcarrierFreq: freq,
 		PLCPower:       power,
