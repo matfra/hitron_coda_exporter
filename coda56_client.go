@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -34,8 +35,9 @@ func newModemClient(conf config) (modemClient, error) {
 }
 
 type coda56Client struct {
-	baseURL *url.URL
-	hc      *http.Client
+	baseURL   *url.URL
+	hc        *http.Client
+	transport *http.Transport
 }
 
 func newCODA56Client(conf config) (*coda56Client, error) {
@@ -59,9 +61,12 @@ func newCODA56Client(conf config) (*coda56Client, error) {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: conf.InsecureSkipVerify}
 	}
 
-	client := &http.Client{Transport: transport}
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   10 * time.Second,
+	}
 
-	return &coda56Client{baseURL: base, hc: client}, nil
+	return &coda56Client{baseURL: base, hc: client, transport: transport}, nil
 }
 
 func (c *coda56Client) Login(_ context.Context) error {
@@ -198,7 +203,13 @@ func (c *coda56Client) getJSON(ctx context.Context, path string, out interface{}
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+		if c.transport != nil {
+			c.transport.CloseIdleConnections()
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		slog.Debug("unexpected status from CODA56", slog.String("url", u.String()), slog.Int("status", resp.StatusCode))
