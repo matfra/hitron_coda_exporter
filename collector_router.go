@@ -9,10 +9,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+type routerClient interface {
+	RouterSysInfo(ctx context.Context) (hitron.RouterSysInfo, error)
+	RouterLocation(ctx context.Context) (hitron.RouterLocation, error)
+}
+
 // routerCollector tracks interesting metrics from the hitron Router* APIs
 type routerCollector struct {
 	ctx     context.Context
-	client  func() *hitron.CableModem
+	client  func() routerClient
 	sysInfo struct {
 		systemTimeSeconds       prometheus.Gauge
 		lanReceiveBytesTotal    *prometheus.CounterVec
@@ -28,7 +33,7 @@ type routerCollector struct {
 }
 
 //nolint:funlen
-func newRouterCollector(ctx context.Context, clientProvider func() *hitron.CableModem) routerCollector {
+func newRouterCollector(ctx context.Context, clientProvider func() routerClient) routerCollector {
 	c := routerCollector{ctx: ctx, client: clientProvider}
 
 	sub := "router"

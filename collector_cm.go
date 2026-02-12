@@ -10,10 +10,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+type cmClient interface {
+	CMSysInfo(ctx context.Context) (hitron.CMSysInfo, error)
+	CMDsInfo(ctx context.Context) (hitron.CMDsInfo, error)
+	CMUsInfo(ctx context.Context) (hitron.CMUsInfo, error)
+	CMDsOfdm(ctx context.Context) (hitron.CMDsOfdm, error)
+	CMUsOfdm(ctx context.Context) (hitron.CMUsOfdm, error)
+	CMVersion(ctx context.Context) (hitron.CMVersion, error)
+}
+
 // cmCollector tracks interesting metrics from the hitron CM* APIs
 type cmCollector struct {
 	ctx     context.Context
-	client  func() *hitron.CableModem
+	client  func() cmClient
 	sysInfo struct {
 		usDataRate       prometheus.Gauge
 		dsDataRate       prometheus.Gauge
@@ -47,7 +56,7 @@ type cmCollector struct {
 }
 
 //nolint:funlen
-func newCMCollector(ctx context.Context, clientProvider func() *hitron.CableModem) cmCollector {
+func newCMCollector(ctx context.Context, clientProvider func() cmClient) cmCollector {
 	c := cmCollector{ctx: ctx, client: clientProvider}
 
 	sub := "cm"
@@ -231,7 +240,7 @@ func (c cmCollector) Collect(ch chan<- prometheus.Metric) {
 	c.collectVersionInfo(ch, client)
 }
 
-func (c cmCollector) collectVersionInfo(ch chan<- prometheus.Metric, client *hitron.CableModem) {
+func (c cmCollector) collectVersionInfo(ch chan<- prometheus.Metric, client cmClient) {
 	vi, err := client.CMVersion(c.ctx)
 	if err != nil {
 		slog.ErrorContext(c.ctx, "Error scraping CMVersion", slog.Any("err", err))
@@ -253,7 +262,7 @@ func (c cmCollector) collectVersionInfo(ch chan<- prometheus.Metric, client *hit
 	c.versionInfo.Collect(ch)
 }
 
-func (c cmCollector) collectSysInfo(ch chan<- prometheus.Metric, client *hitron.CableModem) {
+func (c cmCollector) collectSysInfo(ch chan<- prometheus.Metric, client cmClient) {
 	si, err := client.CMSysInfo(c.ctx)
 	if err != nil {
 		slog.ErrorContext(c.ctx, "Error scraping CMSysInfo", slog.Any("err", err))
@@ -278,7 +287,7 @@ func (c cmCollector) collectSysInfo(ch chan<- prometheus.Metric, client *hitron.
 	c.sysInfo.dhcpLeaseSeconds.Collect(ch)
 }
 
-func (c cmCollector) collectDsInfo(ch chan<- prometheus.Metric, client *hitron.CableModem) {
+func (c cmCollector) collectDsInfo(ch chan<- prometheus.Metric, client cmClient) {
 	dsinfo, err := client.CMDsInfo(c.ctx)
 	if err != nil {
 		slog.ErrorContext(c.ctx, "Error scraping CMDsInfo", slog.Any("err", err))
@@ -310,7 +319,7 @@ func (c cmCollector) collectDsInfo(ch chan<- prometheus.Metric, client *hitron.C
 	c.dsInfo.uncorrected.Collect(ch)
 }
 
-func (c cmCollector) collectUsInfo(ch chan<- prometheus.Metric, client *hitron.CableModem) {
+func (c cmCollector) collectUsInfo(ch chan<- prometheus.Metric, client cmClient) {
 	usinfo, err := client.CMUsInfo(c.ctx)
 	if err != nil {
 		slog.ErrorContext(c.ctx, "Error scraping CMUsInfo", slog.Any("err", err))
@@ -338,7 +347,7 @@ func (c cmCollector) collectUsInfo(ch chan<- prometheus.Metric, client *hitron.C
 	c.usInfo.bandwidth.Collect(ch)
 }
 
-func (c cmCollector) collectOfdm(ch chan<- prometheus.Metric, client *hitron.CableModem) {
+func (c cmCollector) collectOfdm(ch chan<- prometheus.Metric, client cmClient) {
 	usofdm, err := client.CMUsOfdm(c.ctx)
 	if err != nil {
 		slog.ErrorContext(c.ctx, "Error scraping CMUsOfdm", slog.Any("err", err))

@@ -14,5 +14,9 @@ password: pass
 `
 	c, err := parse(strings.NewReader(in))
 	assert.NoError(t, err)
-	assert.EqualValues(t, &config{"192.168.0.1", "user", "pass"}, c)
+	assert.EqualValues(t, &config{
+		Host:     "192.168.0.1",
+		Username: "user",
+		Password: "pass",
+	}, c)
 }

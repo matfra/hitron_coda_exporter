@@ -3,28 +3,69 @@ package main
 import (
 	"context"
 	"log/slog"
+	"strings"
 
-	hitron "github.com/hairyhenderson/hitron_coda"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+type loginClient interface {
+	Login(ctx context.Context) error
+	Logout(ctx context.Context) error
+}
+
+type modemClient interface {
+	loginClient
+	cmClient
+}
+
 type collector struct {
 	ctx    context.Context
-	client *hitron.CableModem
-	rc     routerCollector
+	client modemClient
+	rc     *routerCollector
 	cc     cmCollector
-	wc     wifiCollector
+	wc     *wifiCollector
 
 	up prometheus.Gauge
 
-	config config
+	config        config
+	collectRouter bool
+	collectWiFi   bool
 }
 
 func newCollector(ctx context.Context, conf config) *collector {
 	c := &collector{ctx: ctx, config: conf}
-	c.rc = newRouterCollector(ctx, c.getClient)
-	c.cc = newCMCollector(ctx, c.getClient)
-	c.wc = newWiFiCollector(ctx, c.getClient)
+
+	collectRouter := true
+	if conf.CollectRouter != nil {
+		collectRouter = *conf.CollectRouter
+	}
+
+	collectWiFi := true
+	if conf.CollectWiFi != nil {
+		collectWiFi = *conf.CollectWiFi
+	}
+
+	if strings.EqualFold(conf.ModemType, "coda56") {
+		if conf.CollectRouter == nil {
+			collectRouter = false
+		}
+		if conf.CollectWiFi == nil {
+			collectWiFi = false
+		}
+	}
+
+	c.collectRouter = collectRouter
+	c.collectWiFi = collectWiFi
+
+	if collectRouter {
+		rc := newRouterCollector(ctx, c.getRouterClient)
+		c.rc = &rc
+	}
+	c.cc = newCMCollector(ctx, c.getCMClient)
+	if collectWiFi {
+		wc := newWiFiCollector(ctx, c.getWiFiClient)
+		c.wc = &wc
+	}
 
 	c.up = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metricsNS,
@@ -35,15 +76,39 @@ func newCollector(ctx context.Context, conf config) *collector {
 	return c
 }
 
-func (c *collector) getClient() *hitron.CableModem {
+func (c *collector) getCMClient() cmClient {
 	return c.client
+}
+
+func (c *collector) getRouterClient() routerClient {
+	if c.client == nil {
+		return nil
+	}
+
+	rc, _ := c.client.(routerClient)
+
+	return rc
+}
+
+func (c *collector) getWiFiClient() wifiClient {
+	if c.client == nil {
+		return nil
+	}
+
+	wc, _ := c.client.(wifiClient)
+
+	return wc
 }
 
 // Describe implements Prometheus.Collector.
 func (c collector) Describe(ch chan<- *prometheus.Desc) {
-	c.rc.Describe(ch)
+	if c.rc != nil {
+		c.rc.Describe(ch)
+	}
 	c.cc.Describe(ch)
-	c.wc.Describe(ch)
+	if c.wc != nil {
+		c.wc.Describe(ch)
+	}
 
 	c.up.Describe(ch)
 }
@@ -54,15 +119,15 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	c.up.Set(0)
 	defer c.up.Collect(ch)
 
-	var err error
-
-	c.client, err = hitron.New(c.config.Host, c.config.Username, c.config.Password)
+	client, err := newModemClient(c.config)
 	if err != nil {
 		slog.ErrorContext(c.ctx, "Error creating client", "err", err)
 		exporterClientErrors.Inc()
 
 		return
 	}
+
+	c.client = client
 
 	err = c.client.Login(c.ctx)
 	if err != nil {
@@ -74,9 +139,13 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 
 	defer c.client.Logout(c.ctx)
 
-	c.rc.Collect(ch)
+	if c.rc != nil {
+		c.rc.Collect(ch)
+	}
 	c.cc.Collect(ch)
-	c.wc.Collect(ch)
+	if c.wc != nil {
+		c.wc.Collect(ch)
+	}
 
 	// collect is deferred
 	c.up.Set(1)

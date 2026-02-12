@@ -48,6 +48,16 @@ username: cusadmin
 password: mypassword
 ```
 
+### Supporting other CODA models
+
+To scrape a CODA56 modem, set only the `modem_type` field:
+
+```yaml
+modem_type: coda56
+```
+
+All other defaults are already correct for this model.
+
 To run the exporter:
 
 ```console

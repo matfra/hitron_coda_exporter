@@ -9,9 +9,14 @@ import (
 )
 
 type config struct {
-	Host     string
-	Username string
-	Password string
+	Host               string `yaml:"host"`
+	Username           string `yaml:"username"`
+	Password           string `yaml:"password"`
+	Scheme             string `yaml:"scheme"`
+	ModemType          string `yaml:"modem_type"`
+	InsecureSkipVerify bool   `yaml:"insecure_skip_verify"`
+	CollectRouter      *bool  `yaml:"collect_router"`
+	CollectWiFi        *bool  `yaml:"collect_wifi"`
 }
 
 // parse a config file

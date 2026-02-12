@@ -9,10 +9,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+type wifiClient interface {
+	WiFiClient(ctx context.Context) (hitron.WiFiClient, error)
+}
+
 // wifiCollector tracks interesting metrics from the hitron CM* APIs
 type wifiCollector struct {
 	ctx    context.Context
-	client func() *hitron.CableModem
+	client func() wifiClient
 
 	clientStats struct {
 		rssi      *prometheus.GaugeVec
@@ -21,7 +25,7 @@ type wifiCollector struct {
 	}
 }
 
-func newWiFiCollector(ctx context.Context, clientProvider func() *hitron.CableModem) wifiCollector {
+func newWiFiCollector(ctx context.Context, clientProvider func() wifiClient) wifiCollector {
 	c := wifiCollector{ctx: ctx, client: clientProvider}
 
 	sub := "wifi"
